@@ -331,6 +331,27 @@ class SvnDumpMerge:
             if fromRev != newFromRev:
                 change = 1
 
+        newMergeInfo = ""
+        if node.has_properties():
+            properties = node.get_properties()
+            if properties.has_key('svn:mergeinfo'):
+                mergeInfo = properties['svn:mergeinfo']
+                for line in mergeInfo.split('\n'):
+                    m = re.match('^(.*):(\d+)-(\d+)', line)
+                    if m != None:
+                        mergePath = m.group(1)
+                        mergeFrom = int(m.group(2))
+                        mergeTo = int(m.group(3))
+                        newMergePath = self.__rename_path( mergePath, dumpIndex)
+                        newMergeFrom = self.__in_rev_nr_maps[dumpIndex][mergeFrom]
+                        newMergeTo = self.__in_rev_nr_maps[dumpIndex][mergeTo]
+                        if len(newMergeInfo) != 0:
+                            newMergeInfo = newMergeInfo + "\n"
+                        newMergeInfo = newMergeInfo + newMergePath + ":" + str(newMergeFrom) + "-" + str(newMergeTo)
+
+                if mergeInfo != newMergeInfo:
+                    change = 1
+
         if not change:
             # no change needed
             return node
@@ -341,6 +362,8 @@ class SvnDumpMerge:
             newNode.set_copy_from( newFromPath, newFromRev )
         if node.has_properties():
             newNode.set_properties( node.get_properties() )
+            if len(newMergeInfo) > 0:
+                newNode.set_property( 'svn:mergeinfo', newMergeInfo )
         if node.has_text():
             newNode.set_text_node( node )
         return newNode
